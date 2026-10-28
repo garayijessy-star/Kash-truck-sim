@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Kash Truck Sim</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#101820">
+<style>
+html,body{margin:0;height:100%;background:#101820;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+canvas{display:block;width:100%;height:100%}
+.b{position:fixed;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:2px solid rgba(255,255,255,.55);background:rgba(10,16,22,.45);color:#fff;font:700 20px sans-serif;border-radius:16px}
+.b:active{background:rgba(255,255,255,.3)}
+.s{font-size:15px;border-radius:10px;width:9vw;height:7vh;top:19vh}
+#L{left:2vmin;bottom:3vmin;width:18vmin;height:18vmin}
+#R{left:22vmin;bottom:3vmin;width:18vmin;height:18vmin}
+#BR{right:20vmin;bottom:3vmin;width:16vmin;height:24vmin;border-color:#ff8a80}
+#GS{right:2vmin;bottom:3vmin;width:16vmin;height:34vmin;border-color:#a5d6a7}
+#Q{left:38vw;top:17vh;width:10vw;height:6vh;font-size:14px}
+#W{left:52vw;top:17vh;width:10vw;height:6vh;font-size:14px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="b" id="L" data-k="left">&#9664;</div>
+<div class="b" id="R" data-k="right">&#9654;</div>
+<div class="b" id="BR" data-k="brake">Brake</div>
+<div class="b" id="GS" data-k="gas">Gas</div>
+<div class="b" id="Q" data-act="q">Med</div>
+<div class="b" id="W" data-act="w">Clear</div>
+<div class="b s" style="left:2vw" data-m="L-">&#9664;</div>
+<div class="b s" style="left:12vw" data-m="L+">&#9654;</div>
+<div class="b s" style="left:78vw" data-m="R-">&#9664;</div>
+<div class="b s" style="left:88vw" data-m="R+">&#9654;</div>
+<script src="game.js"></script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});</script>
+</body>
+</html>
