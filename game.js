@@ -289,11 +289,12 @@ function render(t) {
     if (z1 <= 1 || Y2 >= Y1 || Y2 >= maxy) continue;
     var alt = ((idx / 3) | 0) % 2;
     g.fillStyle = GRS[wx][alt]; g.fillRect(0, Y2, W, Y1 - Y2 + 1);
+    var Y1b = Y1 + 1;
     var r1 = W1 / 6, r2 = W2 / 6, rc = alt ? '#c62828' : '#eeeeee';
-    poly(X1 - W1 - r1, Y1, X1 - W1, Y1, X2 - W2, Y2, X2 - W2 - r2, Y2, rc);
-    poly(X1 + W1, Y1, X1 + W1 + r1, Y1, X2 + W2 + r2, Y2, X2 + W2, Y2, rc);
-    poly(X1 - W1, Y1, X1 + W1, Y1, X2 + W2, Y2, X2 - W2, Y2, alt ? '#59595e' : '#55555a');
-    if (alt) { var l1 = W1 / 28, l2 = W2 / 28; poly(X1 - l1, Y1, X1 + l1, Y1, X2 + l2, Y2, X2 - l2, Y2, '#f2f2f2'); }
+    poly(X1 - W1 - r1, Y1b, X1 - W1, Y1b, X2 - W2, Y2, X2 - W2 - r2, Y2, rc);
+    poly(X1 + W1, Y1b, X1 + W1 + r1, Y1b, X2 + W2 + r2, Y2, X2 + W2, Y2, rc);
+    poly(X1 - W1, Y1b, X1 + W1, Y1b, X2 + W2, Y2, X2 - W2, Y2, alt ? '#59595e' : '#55555a');
+    if (alt) { var l1 = W1 / 28, l2 = W2 / 28; poly(X1 - l1, Y1b, X1 + l1, Y1b, X2 + l2, Y2, X2 - l2, Y2, '#f2f2f2'); }
     maxy = Y1; OK[n] = true; SX[n] = X1; SY[n] = Y1; SW[n] = W1;
   }
   drawSprites(OK, SX, SY, SW, bi, t);
