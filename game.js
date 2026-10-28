@@ -288,7 +288,7 @@ function render(t) {
     x += dx; dx += s.c;
     if (z1 <= 1 || Y2 >= Y1 || Y2 >= maxy) continue;
     var alt = ((idx / 3) | 0) % 2;
-    g.fillStyle = GRS[wx][alt]; g.fillRect(0, Y2, W, Y1 - Y2 + 1);
+    g.fillStyle = GRS[wx][alt]; g.fillRect(0, Y2, W, Y1 - Y2);
     var Y1b = Y1 + 1;
     var r1 = W1 / 6, r2 = W2 / 6, rc = alt ? '#c62828' : '#eeeeee';
     poly(X1 - W1 - r1, Y1b, X1 - W1, Y1b, X2 - W2, Y2, X2 - W2 - r2, Y2, rc);
