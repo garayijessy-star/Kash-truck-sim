@@ -1,4 +1,4 @@
-# Kash Truck Sim (Stage 1)
+# Kash Truck Sim (Stage 2)
 
 Offline-ready truck driving game. No installs, no dependencies.
 

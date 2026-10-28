@@ -22,6 +22,130 @@ var pos = 0, v = 0, px = 0, steer = 0, dist = 0, mL = 0, mR = 0, bgx = 0, rpmS =
 var keys = {};
 function clamp(a, lo, hi) { return Math.min(hi, Math.max(lo, a)); }
 
+// ---------- stage 2: traffic, police, toll gates, road rules ----------
+var TOTAL = N * SL, money = 1000, fines = 0, msg = '', msgT = 0, hitCd = 0, pCd = 0;
+var LIMITS = [80, 60, 80, 100];
+function limitAt(p) { return LIMITS[Math.floor(p / SL / 300) % 4]; }
+function say(m) { msg = m; msgT = 3; }
+var KINDS = { car: { wf: .34, hf: .62, sp: [35, 65] }, bus: { wf: .42, hf: 1, sp: [30, 50] }, truck: { wf: .44, hf: 1.05, sp: [28, 48] } };
+var COLS = ['#c62828', '#1565c0', '#f9a825', '#2e7d32', '#6a1b9a', '#eceff1', '#37474f', '#ef6c00'];
+var traffic = [];
+for (var q = 0; q < 18; q++) {
+  var kr = Math.random(), kind = kr < .6 ? 'car' : (kr < .8 ? 'bus' : 'truck'), KK = KINDS[kind];
+  var s0 = KK.sp[0] + Math.random() * (KK.sp[1] - KK.sp[0]);
+  traffic.push({ kind: kind, z: (q * TOTAL / 18 + Math.random() * 1500 + 3000) % TOTAL, x: q % 2 ? .5 : -.5, sp0: s0, sp: s0, col: COLS[q % COLS.length] });
+}
+[70, 450, 900].forEach(function (si) { traffic.push({ kind: 'police', z: si * SL, x: 1.38, sp0: 0, sp: 0, col: '#f5f5f5' }); });
+var gates = [{ i: 200, open: false, t: 0 }, { i: 700, open: false, t: 0 }, { i: 1100, open: false, t: 0 }];
+
+function updateWorld(dt) {
+  var k, j, o;
+  msgT = Math.max(0, msgT - dt); hitCd = Math.max(0, hitCd - dt); pCd = Math.max(0, pCd - dt);
+  for (k = 0; k < traffic.length; k++) {
+    o = traffic[k];
+    if (o.kind !== 'police') {
+      var tgt = o.sp0;
+      for (j = 0; j < traffic.length; j++) {
+        var q2 = traffic[j];
+        if (q2 === o || q2.x !== o.x) continue;
+        if ((q2.z - o.z + TOTAL) % TOTAL < 1400) tgt = Math.min(tgt, q2.sp * .95);
+      }
+      var gp = (pos - o.z + TOTAL) % TOTAL;
+      if (gp > 0 && gp < 1400 && Math.abs(px - o.x) < .45) tgt = Math.min(tgt, v * .95);
+      o.sp += (tgt - o.sp) * Math.min(1, dt * 1.5);
+      o.z = (o.z + o.sp * 40 * dt) % TOTAL;
+    }
+    var dz = (o.z - pos + TOTAL) % TOTAL;
+    if (dz < 450 && Math.abs(o.x - px) < .42 && hitCd === 0) {
+      hitCd = 1.5;
+      if (v - o.sp > 6) { money -= 100; fines += 100; say('Crash! Damage $100'); }
+      v = Math.min(v, o.sp * .6); px += (px >= o.x ? .15 : -.15);
+    }
+    if (o.kind === 'police' && pCd === 0) {
+      var lim = limitAt(pos);
+      if (dz < 250 && v > lim + 8) { money -= 200; fines += 200; pCd = 6; say('Speeding fine $200 (limit ' + lim + ')'); }
+      else if (dz < 4000 && msgT === 0 && v > lim) say('Police ahead - slow down');
+    }
+  }
+  gates.forEach(function (gt) {
+    var gz = gt.i * SL, dg = (gz - pos + TOTAL) % TOTAL;
+    if (dg > TOTAL / 2) { gt.open = false; gt.t = 0; return; }
+    if (gt.open) return;
+    if (dg < 450) {
+      if (v > 20) { money -= 100; fines += 100; say('Hit the barrier! $100'); }
+      pos = (gz - 450 + TOTAL) % TOTAL; v = 0;
+    }
+    if (dg < 2000 && v < 3) { gt.t += dt; if (gt.t > 1.2) { gt.open = true; money -= 50; say('Toll paid $50'); } } else gt.t = 0;
+    if (dg < 3000 && msgT === 0) say('Toll gate - stop and wait');
+  });
+}
+function vehDraw(o, cx, by, W1, t) {
+  var K = o.kind === 'police' ? { wf: .34, hf: .62 } : KINDS[o.kind], w = W1 * K.wf, h = w * K.hf;
+  if (w < 3) return;
+  var carLike = o.kind === 'car' || o.kind === 'police';
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(cx - w * .55, by - h * .05, w * 1.1, h * .12);
+  g.fillStyle = '#111'; g.fillRect(cx - w * .5, by - h * .25, w * .16, h * .25); g.fillRect(cx + w * .34, by - h * .25, w * .16, h * .25);
+  g.fillStyle = o.col; g.fillRect(cx - w / 2, by - h, w, h * .8);
+  g.fillStyle = carLike ? '#1c2733' : '#9ec9e8'; g.fillRect(cx - w * .38, by - h * (carLike ? .98 : .92), w * .76, h * .3);
+  g.fillStyle = '#ff3b30'; g.fillRect(cx - w * .46, by - h * .38, w * .14, h * .1); g.fillRect(cx + w * .32, by - h * .38, w * .14, h * .1);
+  if (o.kind === 'police') {
+    var f = Math.floor(t / 180) % 2;
+    g.fillStyle = '#1565c0'; g.fillRect(cx - w / 2, by - h * .55, w, h * .1);
+    g.fillStyle = f ? '#2979ff' : '#ff1744'; g.fillRect(cx - w * .3, by - h * 1.1, w * .28, h * .14);
+    g.fillStyle = f ? '#ff1744' : '#2979ff'; g.fillRect(cx + w * .02, by - h * 1.1, w * .28, h * .14);
+  }
+}
+function gateDraw(gt, cx, by, W1) {
+  if (W1 < 4) return;
+  var ph = W1 * 1.1, pw = W1 * .13, s;
+  g.fillStyle = '#cfd8dc'; g.fillRect(cx - W1 - pw, by - ph, pw, ph); g.fillRect(cx + W1, by - ph, pw, ph);
+  g.fillStyle = '#ffd600'; g.fillRect(cx - W1 - pw, by - ph - W1 * .22, W1 * 2 + pw * 2, W1 * .22);
+  g.fillStyle = '#111'; g.font = 'bold ' + Math.round(W1 * .17) + 'px sans-serif'; g.textAlign = 'center';
+  g.fillText('TOLL', cx, by - ph - W1 * .05);
+  var by2 = by - W1 * .38, bh = W1 * .09;
+  if (!gt.open) { for (s = 0; s < 8; s++) { g.fillStyle = s % 2 ? '#fff' : '#d32f2f'; g.fillRect(cx - W1 + s * W1 / 4, by2, W1 / 4, bh); } }
+  else { g.fillStyle = '#d32f2f'; g.fillRect(cx - W1, by2 - W1 * .5, bh, W1 * .5); }
+}
+function drawSprites(OK, SX, SY, SW, bi, t) {
+  var lim = QS[qi].d, items = [], k, n, o;
+  for (k = 0; k < traffic.length; k++) {
+    o = traffic[k]; n = Math.floor(((o.z - bi * SL + TOTAL) % TOTAL) / SL);
+    if (n < lim && OK[n]) (items[n] = items[n] || []).push(o);
+  }
+  gates.forEach(function (gt) {
+    var m = (gt.i - bi + N) % N;
+    if (m < lim && OK[m]) (items[m] = items[m] || []).push(gt);
+  });
+  for (n = lim - 1; n >= 0; n--) {
+    if (!items[n]) continue;
+    for (k = 0; k < items[n].length; k++) {
+      o = items[n][k];
+      if (o.i !== undefined) gateDraw(o, SX[n], SY[n], SW[n]);
+      else vehDraw(o, SX[n] + o.x * SW[n], SY[n], SW[n], t);
+    }
+  }
+}
+function drawHud() {
+  var lim = limitAt(pos), r = H * .055, sx = W * .29, sy = H * .11;
+  g.shadowColor = '#000'; g.shadowBlur = 4;
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(sx, sy, r, 0, TAU); g.fill();
+  g.strokeStyle = '#d32f2f'; g.lineWidth = r * .22; g.stroke();
+  g.fillStyle = '#111'; g.textAlign = 'center'; g.font = 'bold ' + Math.round(r * .95) + 'px sans-serif';
+  g.fillText(String(lim), sx, sy + r * .33);
+  g.textAlign = 'right'; g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(H * .045) + 'px sans-serif';
+  g.fillText('$' + money, W * .76, H * .08);
+  g.fillStyle = '#ffab91'; g.font = Math.round(H * .03) + 'px sans-serif'; g.fillText('Fines $' + fines, W * .76, H * .125);
+  if (msgT > 0) {
+    g.globalAlpha = Math.min(1, msgT); g.textAlign = 'center';
+    g.font = 'bold ' + Math.round(H * .05) + 'px sans-serif';
+    var tw = g.measureText(msg).width + H * .05;
+    g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(W / 2 - tw / 2, H * .27, tw, H * .085);
+    g.fillStyle = '#ffeb3b'; g.fillText(msg, W / 2, H * .33);
+    g.globalAlpha = 1;
+  }
+  g.shadowBlur = 0;
+}
+
 // ---------- input ----------
 document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (el) {
@@ -87,6 +211,7 @@ function update(dt) {
   var frac = gear === 0 ? 0 : Math.min(1, (v - (gear - 1) * 17) / 17);
   var rpm = 700 + frac * 1300 + (gas ? 150 : 0);
   rpmS += (rpm - rpmS) * Math.min(1, dt * 8);
+  updateWorld(dt);
   if (ac) {
     var tt = ac.currentTime;
     osc.frequency.setTargetAtTime(rpmS / 60 * 3, tt, .05);
@@ -152,9 +277,10 @@ function render(t) {
 
   var bi = Math.floor(pos / SL), bp = (pos % SL) / SL, b = segs[bi % N], b1 = segs[(bi + 1) % N];
   var cy = b.y + (b1.y - b.y) * bp + CH, cxw = px * RW;
-  var x = 0, dx = -b.c * bp, maxy = H, DD = QS[qi].d;
+  var x = 0, dx = -b.c * bp, maxy = H, DD = QS[qi].d, OK = [], SX = [], SY = [], SW = [];
   for (n = 0; n < DD; n++) {
     var idx = bi + n, s = segs[idx % N], s2 = segs[(idx + 1) % N];
+    OK[n] = false;
     var z1 = idx * SL - pos, z2 = z1 + SL;
     var sc1 = D / Math.max(z1, 1), sc2 = D / z2;
     var X1 = W / 2 + sc1 * (x - cxw) * W / 2, Y1 = Math.round(H / 2 - sc1 * (s.y - cy) * H / 2), W1 = sc1 * RW * W / 2;
@@ -168,8 +294,9 @@ function render(t) {
     poly(X1 + W1, Y1, X1 + W1 + r1, Y1, X2 + W2 + r2, Y2, X2 + W2, Y2, rc);
     poly(X1 - W1, Y1, X1 + W1, Y1, X2 + W2, Y2, X2 - W2, Y2, alt ? '#59595e' : '#55555a');
     if (alt) { var l1 = W1 / 28, l2 = W2 / 28; poly(X1 - l1, Y1, X1 + l1, Y1, X2 + l2, Y2, X2 - l2, Y2, '#f2f2f2'); }
-    maxy = Y1;
+    maxy = Y1; OK[n] = true; SX[n] = X1; SY[n] = Y1; SW[n] = W1;
   }
+  drawSprites(OK, SX, SY, SW, bi, t);
   var fc = FC[wx], fg = g.createLinearGradient(0, H * .3, 0, H * .8);
   fg.addColorStop(0, 'rgba(' + fc + ',0)'); fg.addColorStop(.4, 'rgba(' + fc + ',' + FA[wx] + ')'); fg.addColorStop(1, 'rgba(' + fc + ',0)');
   g.fillStyle = fg; g.fillRect(0, H * .3, W, H * .5);
@@ -192,6 +319,7 @@ function render(t) {
   g.fillText('km/h   ' + (gear ? 'Gear ' + gear : 'N') + '   ' + Math.round(rpmS) + ' rpm   ' + dist.toFixed(1) + ' km', W / 2, H * .145);
   if (v < 1 && !ac) g.fillText('Hold Gas to drive', W / 2, H * .45);
   g.shadowBlur = 0;
+  drawHud();
 }
 
 var last = 0;
